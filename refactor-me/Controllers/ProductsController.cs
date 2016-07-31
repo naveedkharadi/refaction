@@ -2,114 +2,145 @@
 using System.Net;
 using System.Web.Http;
 using refactor_me.Models;
+using Services;
+using System.Collections.Generic;
+using System.Web.Http.Dependencies;
 
 namespace refactor_me.Controllers
 {
     [RoutePrefix("products")]
     public class ProductsController : ApiController
     {
-        [Route]
-        [HttpGet]
-        public Products GetAll()
+        private IProductService ProductService;
+        private IProductOptionService ProductOptionService;
+
+        public ProductsController()
         {
-            return new Products();
+            ProductService = (IProductService)DependencyInjectionConfig.Resolver.GetService(typeof(IProductService));
+            ProductOptionService = (IProductOptionService)DependencyInjectionConfig.Resolver.GetService(typeof(IProductOptionService));
         }
 
         [Route]
         [HttpGet]
-        public Products SearchByName(string name)
+        public IList<Product> GetAll()
         {
-            return new Products(name);
+            IList<Product> listOfUIProducts = new List<Product>();
+            var listOfProducts = ProductService.GetAll();
+            listOfUIProducts = AutoMapper.Mapper.Map(listOfProducts, listOfUIProducts);
+            return listOfUIProducts;
+        }
+
+        [Route]
+        [HttpGet]
+        public IList<Product> SearchByName(string name)
+        {
+            IList<Product> listOfUIProducts = new List<Product>();
+            var listOfProducts = ProductService.SearchByName(name);
+            listOfUIProducts = AutoMapper.Mapper.Map(listOfProducts, listOfUIProducts);
+            return listOfUIProducts;
         }
 
         [Route("{id}")]
         [HttpGet]
         public Product GetProduct(Guid id)
         {
-            var product = new Product(id);
-            if (product.IsNew)
+            var product = ProductService.Get(id);
+            if (product == null)
                 throw new HttpResponseException(HttpStatusCode.NotFound);
 
-            return product;
+            Product uiProduct = AutoMapper.Mapper.Map<Product>(product);
+            return uiProduct;
         }
 
         [Route]
         [HttpPost]
         public void Create(Product product)
         {
-            product.Save();
+            if (product != null)
+            {
+                Database.Models.Product dbProduct = AutoMapper.Mapper.Map<Database.Models.Product>(product);
+                ProductService.Create(dbProduct);
+            }
         }
 
         [Route("{id}")]
         [HttpPut]
         public void Update(Guid id, Product product)
         {
-            var orig = new Product(id)
+            if (product != null)
             {
-                Name = product.Name,
-                Description = product.Description,
-                Price = product.Price,
-                DeliveryPrice = product.DeliveryPrice
-            };
-
-            if (!orig.IsNew)
-                orig.Save();
+                Database.Models.Product dbProduct = ProductService.Get(id);
+                if (dbProduct != null)
+                {
+                    dbProduct = AutoMapper.Mapper.Map<Database.Models.Product>(product);
+                    dbProduct.Id = id;
+                    ProductService.Update(dbProduct);
+                }
+            }
         }
 
         [Route("{id}")]
         [HttpDelete]
         public void Delete(Guid id)
         {
-            var product = new Product(id);
-            product.Delete();
+            ProductService.Delete(id);
         }
 
         [Route("{productId}/options")]
         [HttpGet]
-        public ProductOptions GetOptions(Guid productId)
+        public IList<ProductOption> GetOptions(Guid productId)
         {
-            return new ProductOptions(productId);
+            IList<ProductOption> listOfUIProductOptions = new List<ProductOption>();
+            var listOfProductOptions = ProductOptionService.GetOptionsByProductId(productId);
+            listOfUIProductOptions = AutoMapper.Mapper.Map(listOfProductOptions, listOfUIProductOptions);
+            return listOfUIProductOptions;
         }
 
         [Route("{productId}/options/{id}")]
         [HttpGet]
         public ProductOption GetOption(Guid productId, Guid id)
         {
-            var option = new ProductOption(id);
-            if (option.IsNew)
+            var productOption = ProductOptionService.Get(id);
+            if (productOption == null)
                 throw new HttpResponseException(HttpStatusCode.NotFound);
 
-            return option;
+            ProductOption uiProductOption = AutoMapper.Mapper.Map<ProductOption>(productOption);
+            return uiProductOption;
         }
 
         [Route("{productId}/options")]
         [HttpPost]
         public void CreateOption(Guid productId, ProductOption option)
         {
-            option.ProductId = productId;
-            option.Save();
+            if (option != null)
+            {
+                Database.Models.ProductOption dbProductOption = AutoMapper.Mapper.Map<Database.Models.ProductOption>(option);
+                dbProductOption.ProductId = productId;
+                ProductOptionService.Create(dbProductOption);
+            }
         }
 
         [Route("{productId}/options/{id}")]
         [HttpPut]
         public void UpdateOption(Guid id, ProductOption option)
         {
-            var orig = new ProductOption(id)
+            if (option != null)
             {
-                Name = option.Name,
-                Description = option.Description
-            };
-
-            if (!orig.IsNew)
-                orig.Save();
+                Database.Models.ProductOption dbProductOption = ProductOptionService.Get(id);
+                if (dbProductOption != null)
+                {
+                    dbProductOption = AutoMapper.Mapper.Map<Database.Models.ProductOption>(option);
+                    dbProductOption.Id = id;
+                    ProductOptionService.Update(dbProductOption);
+                }
+            }
         }
 
         [Route("{productId}/options/{id}")]
         [HttpDelete]
         public void DeleteOption(Guid id)
         {
-            var opt = new ProductOption(id);
-            opt.Delete();
+            ProductOptionService.Delete(id);
         }
     }
 }
